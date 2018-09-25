@@ -9,12 +9,11 @@ Write your code in this editor and press "Run" button to compile and execute it.
 #include <stdio.h>
 
 typedef enum { false, true } bool;
-int global_id;
+int quantity;
 
 typedef struct node
 {
     unsigned char mac[6];
-    int id;
     bool is_controler;
     int depth;
     struct node *brothers;
@@ -41,7 +40,6 @@ int main()
     unsigned char my_mac[6] = {0x11, 0x11, 0x11, 0x11, 0x11, 0x11};
     node *root = create_node(NULL, NULL, my_mac, 1);
     root->is_controler = true;
-    root->id = ++global_id;
     test_helper(root);
     //test_helper_branchs(root);
     return 0;
@@ -59,11 +57,11 @@ node *create_node(node *parents, node *prev, unsigned char *mac, int depth)
         new_node->child = NULL;
         new_node->prev = prev;
         new_node->is_controler = false;
-        new_node->id = ++global_id;
         new_node->depth = depth;
-        printf("created node at level %d with mac %02x%02x%02x%02x%02x%02x\n", new_node->depth
+        quantity++;
+        printf("created node at level %d (%02x%02x%02x%02x%02x%02x) total: %d\n", new_node->depth
                , new_node->mac[0], new_node->mac[1], new_node->mac[2], new_node->mac[3]
-               , new_node->mac[4], new_node->mac[5]);
+               , new_node->mac[4], new_node->mac[5], quantity);
     }
     else
         printf ("oops malloc fail\n");
@@ -111,8 +109,9 @@ node *remove_node_helper(node *target_node)
             target_node->child = remove_node_helper(target_node->child);
         }
         new_node = target_node->brothers;
-        printf("removed node %02x%02x%02x%02x%02x%02x\n", target_node->mac[0], target_node->mac[1]
-               , target_node->mac[2], target_node->mac[3], target_node->mac[4], target_node->mac[5]);
+        quantity--;
+        printf("removed node %02x%02x%02x%02x%02x%02x total %d\n", target_node->mac[0], target_node->mac[1]
+               , target_node->mac[2], target_node->mac[3], target_node->mac[4], target_node->mac[5], quantity);
         free(target_node);
     }
     return new_node;
