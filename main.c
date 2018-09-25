@@ -5,7 +5,7 @@
 Write your code in this editor and press "Run" button to compile and execute it.
 
 *******************************************************************************/
-
+//By:Michaelpeng65535@gmail.com
 #include <stdio.h>
 
 typedef enum { false, true } bool;
@@ -19,15 +19,17 @@ typedef struct node {
 	struct node *brothers;
 	struct node *child;
 	struct node *parents;//if we further need pick branchs
+	struct node *prev;
 } node;
 
 
-node *create_node(unsigned char *mac, int depth);
-node *add_sibling(node *brother, unsigned char *mac, int depth);
+node *create_node(node *parents, node *prev, unsigned char *mac, int depth);
+node *add_sibling(node *parents, node *brother, unsigned char *mac, int depth);
 node *add_child(node *parents, unsigned char *mac, int depth);
 node* search(node *cur, unsigned char *mac);
 void pick_up_branchs(node *root, unsigned char (*branch)[12], int n);
-void remove_node(node *node, unsigned char *mac);
+void remove_node(node *node);
+node* remove_node_helper(node *target_node);
 void free_tree(node *node);
 void test_helper(node *root);
 void test_helper_branchs(node *root);
@@ -36,22 +38,24 @@ int main()
 {
     int i = 0;
     unsigned char my_mac[12] = "111111111111";
-    node *root = create_node(my_mac, 1);
+    node *root = create_node(NULL, NULL, my_mac, 1);
     root->is_controler = true;
     root->id = ++global_id;
-    //test_helper(root);
-    test_helper_branchs(root);
+    test_helper(root);
+    //test_helper_branchs(root);
     return 0;
 }
 
-node *create_node(unsigned char *mac, int depth)
+node *create_node(node *parents, node *prev, unsigned char *mac, int depth)
 {
     node *new_node = malloc(sizeof(node));
     
     if (new_node) {
         memcpy(new_node->mac, mac, 12);
+        new_node->parents = parents;
         new_node->brothers = NULL;
         new_node->child = NULL;
+        new_node->prev = prev;
         new_node->is_controler = false;
         new_node->id = ++global_id;
         new_node->depth = depth;
@@ -61,26 +65,55 @@ node *create_node(unsigned char *mac, int depth)
     return new_node;
 }
 
-void remove_node(node *node, unsigned char *mac)
+void remove_node(node *target_node)
 {
-   if (node != NULL) {
-       while(node->child != NULL) {
-           node->child = remove_node(node->child);
-       }
-       new_node=node
-   }
-}
-
-void free_tree(node *node){
-    if(node){
-        if (node->brothers)
-            free_tree(node->brothers);
-        if (node->child)
-            free_tree(node->child);
-        free(node);
+    node *parent = target_node->parents;
+    node *prev = target_node->prev;
+    node *new_node = NULL;
+    if (target_node->parents == NULL)
+        remove_node_helper(target_node); //Red wedding
+    else if ((target_node->brothers == NULL) && (prev == NULL)) {
+        parent->child = NULL;
+        remove_node_helper(target_node);
+    } else if ((target_node->brothers == NULL) && (prev != NULL)) {//extra words to easier understand
+        prev->brothers = NULL;
+        remove_node_helper(target_node);
+    } else if ((target_node->brothers != NULL) && (prev == NULL)) {
+        new_node = remove_node_helper(target_node);
+        parent->child = new_node;
+        new_node->prev = NULL;
+    } else {
+        new_node = remove_node_helper(target_node);
+        prev->brothers = new_node;
+        new_node->prev = prev;
     }
 }
-node *add_sibling(node *brother, unsigned char *mac, int depth)
+
+node* remove_node_helper(node *target_node)
+{
+    node *new_node = NULL;
+    if (target_node) {
+       while(target_node->child) {
+           target_node->child = remove_node_helper(target_node->child);
+       }
+       new_node = target_node->brothers;
+       printf("removed node %c%c\n", target_node->mac[0], target_node->mac[1]);
+       free(target_node);
+    }
+    return new_node; 
+}
+
+void free_tree(node *target_node){
+    if(target_node){
+        if (target_node->brothers)
+            free_tree(target_node->brothers);
+        if (target_node->child)
+            free_tree(target_node->child);
+        printf("removed node %c%c\n", target_node->mac[0], target_node->mac[1]);
+        free(target_node);
+    }
+}
+node *add_sibling(node *parents, node *brother, unsigned char *mac, int depth)
 {
 
     while (brother->brothers) {
@@ -88,24 +121,22 @@ node *add_sibling(node *brother, unsigned char *mac, int depth)
             return NULL;
         brother = brother->brothers;
     }
-    brother->brothers = create_node(mac, depth);
+    brother->brothers = create_node(parents, brother, mac, depth);
     return brother->brothers;
 }
 
 node *add_child(node *parents, unsigned char *mac, int depth)
 {
     if (parents == NULL)
-        return;
+        return NULL;
     node *res;
     if (parents->child) {
         if (!memcmp(parents->child->mac, mac, 12))//skip node with same mac 
-            return;
-        res = add_sibling(parents->child, mac, parents->child->depth);
-        res->parents = parents;
+            return NULL;
+        res = add_sibling(parents, parents->child, mac, parents->child->depth);
     }
     else {
-        parents->child = create_node(mac, ++depth);
-        parents->child->parents = parents;
+        parents->child = create_node(parents, NULL, mac, ++depth);
         res = parents->child;
     }
     return res;
@@ -190,6 +221,8 @@ I am not a good painter, but the tree is kind of like this:
    5      7      8
 6    9
 */
+    node *remove_target = NULL, *new_child = NULL;
+    unsigned char my_mac[12] = "111111111111";
     unsigned char my_mac2[12] = "222222222222";
     unsigned char my_mac3[12] = "333333333333";
     unsigned char my_mac4[12] = "444444444444";
@@ -207,6 +240,9 @@ I am not a good painter, but the tree is kind of like this:
     add_child(root->child->brothers, my_mac7, root->child->brothers->depth);
     add_child(root->child->brothers->brothers, my_mac8, root->child->brothers->brothers->depth);
     search(root, my_mac8);
+    //lets remove 222222222222
+    remove_target = search(root, my_mac2);
+    remove_node(remove_target);
 }
 
 void test_helper_branchs(node *root) {
@@ -230,7 +266,7 @@ void test_helper_branchs(node *root) {
         "777777777777"
     };
     
-    unsigned char d_piece_of_branch[3][12] = {
+    unsigned char d_piece_of_branch[2][12] = {
         "777777777777",
         "333333333333"
     };
@@ -252,4 +288,6 @@ void test_helper_branchs(node *root) {
     printf("************************************************\n");
     pick_up_branchs(root, e_piece_of_branch, sizeof(e_piece_of_branch)/sizeof(e_piece_of_branch[0]));
     printf("************************************************\n");
+    //Let's nuclear the tree
+    free_tree(root);
 }
